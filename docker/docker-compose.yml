@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: solar-leads-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-solar_leads}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - solar-leads-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: solar-leads-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-solar_leads}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-production}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      WAHA_URL: http://waha:3000
+    networks:
+      - solar-leads-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+
+  # WAHA - WhatsApp HTTP API
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: solar-leads-waha
+    restart: unless-stopped
+    environment:
+      WHATSAPP_HOOK_URL: http://backend:3000/api/webhooks/waha
+      WHATSAPP_HOOK_EVENTS: message
+    volumes:
+      - waha_data:/app/.wwebjs_auth
+      - waha_sessions:/app/.sessions
+    networks:
+      - solar-leads-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.waha.rule=Host(`waha.${DOMAIN}`)"
+      - "traefik.http.routers.waha.entrypoints=websecure"
+      - "traefik.http.routers.waha.tls.certresolver=letsencrypt"
+      - "traefik.http.services.waha.loadbalancer.server.port=3000"
+
+  # Dashboard (Next.js)
+  dashboard:
+    build:
+      context: ../dashboard
+      dockerfile: Dockerfile
+    container_name: solar-leads-dashboard
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
+      NODE_ENV: ${NODE_ENV:-production}
+    networks:
+      - solar-leads-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.${DOMAIN}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
+
+  # Landing Page (Next.js - Multi-tenant)
+  # Note: For MVP, landing pages will be created in Lovable
+  # This is a placeholder for future migration
+  # landing:
+  #   build:
+  #     context: ../landing-page
+  #     dockerfile: Dockerfile
+  #   container_name: solar-leads-landing
+  #   restart: unless-stopped
+  #   environment:
+  #     NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
+  #     NODE_ENV: ${NODE_ENV:-production}
+  #   networks:
+  #     - solar-leads-network
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.landing.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.${DOMAIN}`)"
+  #     - "traefik.http.routers.landing.entrypoints=websecure"
+  #     - "traefik.http.routers.landing.tls.certresolver=letsencrypt"
+  #     - "traefik.http.services.landing.loadbalancer.server.port=3000"
+
+  # Traefik - Reverse Proxy
+  traefik:
+    image: traefik:v2.10
+    container_name: solar-leads-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - solar-leads-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+volumes:
+  postgres_data:
+    driver: local
+  waha_data:
+    driver: local
+  waha_sessions:
+    driver: local
+  traefik_letsencrypt:
+    driver: local
+
+networks:
+  solar-leads-network:
+    driver: bridge
