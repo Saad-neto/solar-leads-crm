@@ -12,6 +12,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
+    "onboarding:create": "tsx scripts/criar-onboarding.ts",
     "lint": "eslint src --ext .ts",
     "test": "jest"
   },
