@@ -9,6 +9,7 @@ const createLeadSchema = z.object({
   telefone: z.string().min(10, 'Valid phone number required'),
   email: z.string().email().optional(),
   cidade: z.string().optional(),
+  valorConta: z.enum(['ATE_200', 'DE_200_A_500', 'DE_500_A_1000', 'ACIMA_1000']).optional(),
   clienteId: z.string(),
   origem: z.string().optional(),
   utmSource: z.string().optional(),

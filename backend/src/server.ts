@@ -40,7 +40,28 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
+console.log('🔧 Mounting routes at /api...');
 app.use('/api', routes);
+
+// Debug: List all routes
+const listRoutes = (router: any, prefix = '') => {
+  router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+      const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
+      console.log(`  📍 ${methods} ${prefix}${middleware.route.path}`);
+    } else if (middleware.name === 'router' && middleware.handle.stack) {
+      const path = middleware.regexp.source
+        .replace('\\/?', '')
+        .replace('(?=\\/|$)', '')
+        .replace(/\\\//g, '/')
+        .replace('^', '');
+      listRoutes(middleware.handle, prefix + path);
+    }
+  });
+};
+
+console.log('📋 Registered routes:');
+listRoutes(app._router);
 
 // 404 handler
 app.use((req, res) => {
@@ -55,10 +76,10 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+  console.log(`🏥 Health check: http://95.217.158.112:${PORT}/health`);
 });
 
 // Graceful shutdown

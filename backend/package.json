@@ -19,11 +19,17 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
-  "keywords": ["solar", "leads", "api", "saas"],
+  "keywords": [
+    "solar",
+    "leads",
+    "api",
+    "saas"
+  ],
   "author": "",
   "license": "PROPRIETARY",
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
