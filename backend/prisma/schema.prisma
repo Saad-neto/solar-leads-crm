@@ -76,8 +76,8 @@ model Lead {
   status LeadStatus @default(NOVO)
   notas  String?    @db.Text
 
-  // Dados da conversa WhatsApp (WAHA)
-  conversaCompleta Boolean @default(false)
+  // Dados da conversa WhatsApp
+  conversaCompleta String? @db.Text // Histórico completo da conversa
   respostasBot     Json? // Armazena objeto com todas as respostas
 
   // Timestamps

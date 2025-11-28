@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../database/prisma';
 
-export const handleWAHAWebhook = async (
+export const handleQuepasaWebhook = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -10,17 +10,23 @@ export const handleWAHAWebhook = async (
     const webhookData = req.body;
 
     // Log webhook for debugging
-    console.log('📨 WAHA Webhook received:', JSON.stringify(webhookData, null, 2));
+    console.log('📨 Quepasa Webhook received:', JSON.stringify(webhookData, null, 2));
 
-    // TODO: Implement WAHA webhook handling
-    // This is a placeholder. Full implementation will:
-    // 1. Parse webhook payload
-    // 2. Identify the session/cliente
-    // 3. Process the message based on conversation flow
-    // 4. Update lead data in database
-    // 5. Send appropriate response via WAHA API
+    // Formato do webhook Quepasa:
+    // {
+    //   id: "message-id",
+    //   timestamp: 1234567890,
+    //   source: "5511999999999", // número que enviou
+    //   recipient: "5511963256658", // nosso bot
+    //   message: {
+    //     text: "mensagem do usuário"
+    //   },
+    //   fromMe: false
+    // }
 
-    // For now, just acknowledge receipt
+    // Por enquanto apenas loga e confirma recebimento
+    // O processamento da mensagem está no whatsapp.controller.ts -> handleWebhook
+
     res.status(200).json({
       success: true,
       message: 'Webhook received',

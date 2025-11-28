@@ -25,9 +25,9 @@ const routes = [
     href: "/dashboard/leads",
   },
   {
-    label: "Métricas",
+    label: "Analytics",
     icon: BarChart3,
-    href: "/dashboard/metrics",
+    href: "/dashboard/analytics",
   },
 ];
 

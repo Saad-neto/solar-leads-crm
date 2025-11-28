@@ -1,33 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../database/prisma';
 import { AppError } from '../middlewares/errorHandler';
-import wahaService from '../services/waha.service';
+import quepasaService from '../services/quepasa.service';
+import llmService from '../services/llm.service';
 import { LeadStatus } from '@prisma/client';
 
-interface WhatsAppMessage {
-  event: string;
-  session: string;
-  payload: {
+interface QuepasaWebhookMessage {
+  id: string;
+  timestamp: string;
+  type: string;
+  chat: {
     id: string;
-    timestamp: number;
-    from: string;
-    fromMe: boolean;
-    body: string;
-    hasMedia: boolean;
+    phone: string;
+    title: string;
   };
+  text: string;
+  fromme: boolean;
+  frominternal: boolean;
+  wid: string;
 }
-
-interface ConversationState {
-  step: 'tipo_imovel' | 'valor_conta' | 'cidade' | 'finalizado';
-  data: {
-    tipoImovel?: string;
-    valorConta?: string;
-    cidade?: string;
-  };
-}
-
-// Armazena estado da conversa em memória (em produção, usar Redis)
-const conversationStates = new Map<string, ConversationState>();
 
 export const handleWebhook = async (
   req: Request,
@@ -35,15 +26,26 @@ export const handleWebhook = async (
   next: NextFunction
 ) => {
   try {
-    const message: WhatsAppMessage = req.body;
+    const message: QuepasaWebhookMessage = req.body;
+
+    console.log('📨 Processing Quepasa message:', JSON.stringify(message, null, 2));
 
     // Ignora mensagens enviadas por nós
-    if (message.payload.fromMe) {
+    if (message.fromme) {
+      console.log('⏭️ Ignoring message from bot');
       return res.status(200).json({ success: true });
     }
 
-    const phoneNumber = message.payload.from.replace('@c.us', '');
-    const messageText = message.payload.body.toLowerCase().trim();
+    // Ignora se não tiver texto
+    if (!message.text) {
+      console.log('⏭️ Ignoring message without text');
+      return res.status(200).json({ success: true });
+    }
+
+    const phoneNumber = message.chat.phone.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
+    const messageText = message.text.toLowerCase().trim();
+
+    console.log(`💬 Message from: ${phoneNumber} - Text: "${messageText}"`);
 
     // Busca ou cria lead
     let lead = await prisma.lead.findFirst({
@@ -57,15 +59,23 @@ export const handleWebhook = async (
     if (!lead) {
       // Cria novo lead se não existir
       const defaultClientId = 'cmiaplne2000013cgz37gk2zd'; // ID do cliente de teste
+      const leadName = message.chat.title || 'Lead WhatsApp';
+
+      console.log(`✨ Creating new lead: ${leadName} (${phoneNumber})`);
+
       lead = await prisma.lead.create({
         data: {
-          nome: 'Lead WhatsApp',
+          nome: leadName,
           telefone: phoneNumber,
           origem: 'whatsapp',
           status: LeadStatus.NOVO,
           clienteId: defaultClientId,
         },
       });
+
+      console.log(`✅ Lead created with ID: ${lead.id}`);
+    } else {
+      console.log(`📋 Found existing lead: ${lead.nome} (ID: ${lead.id})`);
     }
 
     // Processa mensagem
@@ -83,126 +93,101 @@ async function processMessage(
   phoneNumber: string,
   messageText: string
 ) {
-  let state = conversationStates.get(phoneNumber) || {
-    step: 'tipo_imovel',
-    data: {},
-  };
+  try {
+    console.log(`🤖 Processing message with LLM for ${phoneNumber}: "${messageText}"`);
 
-  let response = '';
-  let shouldUpdateLead = false;
-  let leadUpdate: any = {};
+    // Usa o LLM para gerar resposta inteligente
+    const botResponse = await llmService.chat(phoneNumber, messageText);
 
-  switch (state.step) {
-    case 'tipo_imovel':
-      if (messageText.includes('a') || messageText.includes('residencial')) {
-        state.data.tipoImovel = 'residencial';
-        response = 'valorConta';
-        state.step = 'valor_conta';
-        shouldUpdateLead = true;
-        leadUpdate.interesse = 'residencial';
-      } else if (messageText.includes('b') || messageText.includes('comercial')) {
-        state.data.tipoImovel = 'comercial';
-        response = 'valorConta';
-        state.step = 'valor_conta';
-        shouldUpdateLead = true;
-        leadUpdate.interesse = 'comercial';
-      } else if (messageText.includes('c') || messageText.includes('rural')) {
-        state.data.tipoImovel = 'rural';
-        response = 'valorConta';
-        state.step = 'valor_conta';
-        shouldUpdateLead = true;
-        leadUpdate.interesse = 'rural';
-      } else {
-        await wahaService.sendMessage({
-          chatId: `${phoneNumber}@c.us`,
-          text: 'Por favor, escolha uma das opções: (a) Residencial, (b) Comercial ou (c) Rural',
-        });
-        return;
-      }
-      break;
+    console.log(`💬 Bot response: "${botResponse}"`);
 
-    case 'valor_conta':
-      let valorConta = null;
-      if (messageText.includes('a') || messageText.includes('200')) {
-        valorConta = 'ATE_200';
-        state.data.valorConta = 'ATE_200';
-      } else if (messageText.includes('b') || messageText.includes('500')) {
-        valorConta = 'DE_200_A_500';
-        state.data.valorConta = 'DE_200_A_500';
-      } else if (messageText.includes('c') || messageText.includes('1000')) {
-        valorConta = 'DE_500_A_1000';
-        state.data.valorConta = 'DE_500_A_1000';
-      } else if (messageText.includes('d') || messageText.includes('acima')) {
-        valorConta = 'ACIMA_1000';
-        state.data.valorConta = 'ACIMA_1000';
-      } else {
-        await wahaService.sendMessage({
-          chatId: `${phoneNumber}@c.us`,
-          text: 'Por favor, escolha uma das opções: (a), (b), (c) ou (d)',
-        });
-        return;
-      }
-
-      response = 'cidade';
-      state.step = 'cidade';
-      shouldUpdateLead = true;
-      leadUpdate.valorConta = valorConta;
-      break;
-
-    case 'cidade':
-      state.data.cidade = messageText;
-      response = 'finalizado';
-      state.step = 'finalizado';
-      shouldUpdateLead = true;
-      leadUpdate.cidade = messageText;
-      leadUpdate.status = LeadStatus.QUALIFICADO;
-      break;
-
-    case 'finalizado':
-      await wahaService.sendMessage({
-        chatId: `${phoneNumber}@c.us`,
-        text: 'Você já completou o cadastro! Nossa equipe entrará em contato em breve. 😊',
-      });
-      return;
-  }
-
-  // Atualiza lead
-  if (shouldUpdateLead) {
-    const currentConversation = await prisma.lead.findUnique({
+    // Salva mensagem do cliente no histórico
+    const currentLead = await prisma.lead.findUnique({
       where: { id: leadId },
       select: { conversaCompleta: true },
     });
 
-    const conversationHistory = currentConversation?.conversaCompleta || '';
-    const newEntry = `\n[${new Date().toISOString()}] Cliente: ${messageText}`;
+    const conversationHistory = currentLead?.conversaCompleta || '';
+    const timestamp = new Date().toISOString();
+    const updatedHistory = conversationHistory +
+      `\n[${timestamp}] Cliente: ${messageText}` +
+      `\n[${timestamp}] Bot: ${botResponse}`;
 
+    // Extrai dados do lead da conversa
+    const leadData = llmService.getLeadData(phoneNumber);
+    const isQualified = llmService.isLeadQualified(phoneNumber);
+
+    console.log(`📊 Lead data extracted:`, leadData);
+    console.log(`✅ Lead qualified:`, isQualified);
+
+    // Prepara atualização do lead
+    const leadUpdate: any = {
+      conversaCompleta: updatedHistory,
+    };
+
+    // Atualiza campos específicos se foram extraídos
+    if (leadData.tipoImovel) {
+      leadUpdate.interesse = leadData.tipoImovel;
+    }
+
+    if (leadData.valorConta) {
+      // Converte valor para enum do banco
+      const valor = leadData.valorConta.replace(/[^\d]/g, '');
+      if (parseInt(valor) <= 200) {
+        leadUpdate.valorConta = 'ATE_200';
+      } else if (parseInt(valor) <= 500) {
+        leadUpdate.valorConta = 'DE_200_A_500';
+      } else if (parseInt(valor) <= 1000) {
+        leadUpdate.valorConta = 'DE_500_A_1000';
+      } else {
+        leadUpdate.valorConta = 'ACIMA_1000';
+      }
+    }
+
+    if (leadData.cidade) {
+      leadUpdate.cidade = leadData.cidade;
+    }
+
+    if (leadData.nome) {
+      leadUpdate.nome = leadData.nome;
+    }
+
+    if (leadData.email) {
+      leadUpdate.email = leadData.email;
+    }
+
+    // Se lead está qualificado, atualiza status
+    const conversaAnterior = typeof currentLead?.conversaCompleta === 'string' ? currentLead.conversaCompleta : '';
+    if (isQualified && !conversaAnterior.includes('QUALIFICADO')) {
+      leadUpdate.status = LeadStatus.QUALIFICADO;
+      console.log(`🎯 Lead qualificado! Dados: tipo=${leadData.tipoImovel}, valor=${leadData.valorConta}, cidade=${leadData.cidade}`);
+    }
+
+    // Atualiza lead no banco
     await prisma.lead.update({
       where: { id: leadId },
-      data: {
-        ...leadUpdate,
-        conversaCompleta: conversationHistory + newEntry,
-      },
+      data: leadUpdate,
+    });
+
+    console.log(`💾 Lead updated in database`);
+
+    // Envia resposta via WhatsApp
+    await quepasaService.sendMessage({
+      chatId: phoneNumber,
+      text: botResponse,
+    });
+
+    console.log(`✅ Message sent to WhatsApp`);
+
+  } catch (error) {
+    console.error('❌ Error processing message with LLM:', error);
+
+    // Fallback: envia mensagem de erro amigável
+    await quepasaService.sendMessage({
+      chatId: phoneNumber,
+      text: 'Desculpe, tive um problema técnico. Pode repetir sua mensagem? 🔧',
     });
   }
-
-  // Salva estado
-  conversationStates.set(phoneNumber, state);
-
-  // Envia próxima mensagem
-  await wahaService.sendTemplateMessage(phoneNumber, response);
-
-  // Adiciona resposta do bot ao histórico
-  const lead = await prisma.lead.findUnique({
-    where: { id: leadId },
-    select: { conversaCompleta: true },
-  });
-
-  await prisma.lead.update({
-    where: { id: leadId },
-    data: {
-      conversaCompleta: (lead?.conversaCompleta || '') + `\n[${new Date().toISOString()}] Bot: ${response}`,
-    },
-  });
 }
 
 export const getSessionStatus = async (
@@ -211,7 +196,7 @@ export const getSessionStatus = async (
   next: NextFunction
 ) => {
   try {
-    const status = await wahaService.getSessionStatus();
+    const status = await quepasaService.getStatus();
     res.json({
       success: true,
       data: status,
@@ -227,17 +212,7 @@ export const getQRCode = async (
   next: NextFunction
 ) => {
   try {
-    // Verifica se sessão existe
-    let session = await wahaService.checkSession();
-
-    if (!session) {
-      // Cria sessão se não existir
-      await wahaService.createSession();
-      // Aguarda um pouco para o QR code ser gerado
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
-    const qrCode = await wahaService.getQRCode();
+    const qrCode = await quepasaService.getQRCode();
 
     res.json({
       success: true,
@@ -277,17 +252,18 @@ export const sendMessageToLead = async (
       throw new AppError(400, 'Lead has no phone number');
     }
 
-    const formattedPhone = wahaService.formatPhoneNumber(lead.telefone);
-    await wahaService.sendMessage({
-      chatId: `${formattedPhone}@c.us`,
+    const formattedPhone = quepasaService.formatPhoneNumber(lead.telefone);
+    await quepasaService.sendMessage({
+      chatId: formattedPhone,
       text: message,
     });
 
     // Salva no histórico
+    const conversaAtual = typeof lead.conversaCompleta === 'string' ? lead.conversaCompleta : '';
     await prisma.lead.update({
       where: { id: leadId },
       data: {
-        conversaCompleta: (lead.conversaCompleta || '') +
+        conversaCompleta: conversaAtual +
           `\n[${new Date().toISOString()}] Vendedor: ${message}`,
       },
     });
@@ -328,7 +304,7 @@ export const startConversation = async (
       throw new AppError(400, 'Lead has no phone number');
     }
 
-    await wahaService.sendTemplateMessage(lead.telefone, 'welcome');
+    await quepasaService.sendTemplateMessage(lead.telefone, 'welcome');
 
     await prisma.lead.update({
       where: { id: leadId },

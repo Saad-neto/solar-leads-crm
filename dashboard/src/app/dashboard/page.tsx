@@ -24,6 +24,9 @@ export default function DashboardPage() {
     contatado: 0,
     qualificado: 0,
   });
+  const [overview, setOverview] = useState<{
+    growthPercentage: number;
+  } | null>(null);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -33,19 +36,27 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
-      const response: any = await api.getLeads({ limit: 5 });
-      if (response.success) {
-        const leads = response.data.leads;
+      const [leadsResponse, overviewResponse]: any = await Promise.all([
+        api.getLeads({ limit: 5 }),
+        api.getOverviewMetrics(),
+      ]);
+
+      if (leadsResponse.success) {
+        const leads = leadsResponse.data.leads;
         setRecentLeads(leads);
 
         // Calculate stats
         setStats({
-          total: response.data.total,
+          total: leadsResponse.data.total,
           novo: leads.filter((l: Lead) => l.status === "NOVO").length,
           contatado: leads.filter((l: Lead) => l.status === "CONTATADO").length,
           qualificado: leads.filter((l: Lead) => l.status === "QUALIFICADO")
             .length,
         });
+      }
+
+      if (overviewResponse.success) {
+        setOverview(overviewResponse.data);
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -87,7 +98,15 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              +20% desde o último mês
+              {overview?.growthPercentage !== undefined ? (
+                overview.growthPercentage >= 0 ? (
+                  `+${overview.growthPercentage}% desde o último mês`
+                ) : (
+                  `${overview.growthPercentage}% desde o último mês`
+                )
+              ) : (
+                "Carregando..."
+              )}
             </p>
           </CardContent>
         </Card>

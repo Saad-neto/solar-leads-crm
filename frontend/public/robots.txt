@@ -1,3 +1,4 @@
+# robots.txt for Solar Energy
 User-agent: Googlebot
 Allow: /
 
@@ -12,3 +13,6 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# Sitemap
+Sitemap: https://www.solarenergy.com.br/sitemap.xml

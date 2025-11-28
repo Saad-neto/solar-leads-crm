@@ -63,46 +63,118 @@ export const getLeads = async (
       throw new AppError(401, 'Authentication required');
     }
 
-    const { status, startDate, endDate, page = '1', limit = '50' } = req.query;
+    const {
+      status,
+      origem,
+      cidade,
+      search,
+      dateFrom,
+      dateTo,
+      valorConta,
+      page = '1',
+      pageSize = '25',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = req.query;
 
+    // Build WHERE clause
     const where: any = {
       clienteId: req.user.clienteId,
     };
 
-    if (status && typeof status === 'string') {
-      where.status = status;
+    // Filter by status (can be multiple)
+    if (status) {
+      const statusArray = Array.isArray(status) ? status : [status];
+      if (statusArray.length === 1) {
+        where.status = statusArray[0];
+      } else if (statusArray.length > 1) {
+        where.status = { in: statusArray };
+      }
     }
 
-    if (startDate && endDate) {
-      where.createdAt = {
-        gte: new Date(startDate as string),
-        lte: new Date(endDate as string),
-      };
+    // Filter by origem (can be multiple)
+    if (origem) {
+      const origemArray = Array.isArray(origem) ? origem : [origem];
+      if (origemArray.length === 1) {
+        where.origem = origemArray[0];
+      } else if (origemArray.length > 1) {
+        where.origem = { in: origemArray };
+      }
     }
 
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
+    // Filter by cidade (can be multiple)
+    if (cidade) {
+      const cidadeArray = Array.isArray(cidade) ? cidade : [cidade];
+      if (cidadeArray.length === 1) {
+        where.cidade = cidadeArray[0];
+      } else if (cidadeArray.length > 1) {
+        where.cidade = { in: cidadeArray };
+      }
+    }
+
+    // Filter by valorConta
+    if (valorConta) {
+      where.valorConta = valorConta;
+    }
+
+    // Filter by date range
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) {
+        where.createdAt.gte = new Date(dateFrom as string);
+      }
+      if (dateTo) {
+        // Add 1 day to include the entire end date
+        const endDate = new Date(dateTo as string);
+        endDate.setDate(endDate.getDate() + 1);
+        where.createdAt.lt = endDate;
+      }
+    }
+
+    // Search by name, email or phone
+    if (search && typeof search === 'string') {
+      where.OR = [
+        { nome: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { telefone: { contains: search } },
+      ];
+    }
+
+    // Pagination
+    const pageNum = Math.max(1, parseInt(page as string) || 1);
+    const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize as string) || 25));
+    const skip = (pageNum - 1) * pageSizeNum;
+
+    // Sorting
+    const validSortFields = ['createdAt', 'nome', 'status', 'cidade', 'valorConta'];
+    const sortField = validSortFields.includes(sortBy as string) ? (sortBy as string) : 'createdAt';
+    const sortDirection = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortField]: sortDirection },
         skip,
-        take: limitNum,
+        take: pageSizeNum,
       }),
       prisma.lead.count({ where }),
     ]);
+
+    const totalPages = Math.ceil(total / pageSizeNum);
 
     res.json({
       success: true,
       data: {
         leads,
+        total,
         pagination: {
-          total,
           page: pageNum,
-          limit: limitNum,
-          totalPages: Math.ceil(total / limitNum),
+          pageSize: pageSizeNum,
+          totalPages,
+          totalItems: total,
+          hasNext: pageNum < totalPages,
+          hasPrev: pageNum > 1,
+          itemsOnPage: leads.length,
         },
       },
     });

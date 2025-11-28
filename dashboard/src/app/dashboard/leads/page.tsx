@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pagination } from "@/components/Pagination";
 import { api } from "@/lib/api";
 import { Lead } from "@/types";
 import { formatDate, formatPhone } from "@/lib/utils";
@@ -14,59 +16,105 @@ import {
   Mail,
   MapPin,
   Search,
-  Filter,
   Download,
   Eye,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function LeadsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL");
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
-  useEffect(() => {
-    loadLeads();
-  }, []);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(
+    parseInt(searchParams.get("page") || "1")
+  );
+  const [pageSize, setPageSize] = useState(
+    parseInt(searchParams.get("pageSize") || "25")
+  );
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
-    filterLeads();
-  }, [searchTerm, statusFilter, leads]);
+    loadLeads();
+  }, [currentPage, pageSize, statusFilter, searchTerm]);
+
+  // Update URL with query params
+  const updateURL = () => {
+    const params = new URLSearchParams();
+    if (currentPage > 1) params.set("page", currentPage.toString());
+    if (pageSize !== 25) params.set("pageSize", pageSize.toString());
+    if (statusFilter !== "ALL") params.set("status", statusFilter);
+    if (searchTerm) params.set("search", searchTerm);
+
+    const newURL = params.toString()
+      ? `/dashboard/leads?${params.toString()}`
+      : "/dashboard/leads";
+
+    router.replace(newURL, { scroll: false });
+  };
+
+  useEffect(() => {
+    updateURL();
+  }, [currentPage, pageSize, statusFilter, searchTerm]);
 
   const loadLeads = async () => {
     try {
-      const response: any = await api.getLeads({ limit: 100 });
+      setIsLoading(true);
+      const params: any = {
+        page: currentPage,
+        pageSize: pageSize,
+      };
+
+      if (statusFilter !== "ALL") {
+        params.status = statusFilter;
+      }
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      const response: any = await api.getLeads(params);
+
       if (response.success) {
         setLeads(response.data.leads);
+        setTotalItems(response.data.pagination.totalItems);
+        setTotalPages(response.data.pagination.totalPages);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading leads:", error);
+      toast.error("Erro ao carregar leads");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const filterLeads = () => {
-    let filtered = leads;
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-    // Filter by status
-    if (statusFilter !== "ALL") {
-      filtered = filtered.filter((lead) => lead.status === statusFilter);
-    }
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page
+  };
 
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (lead) =>
-          lead.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lead.telefone.includes(searchTerm) ||
-          lead.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1); // Reset to first page
+  };
 
-    setFilteredLeads(filtered);
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    // Debounce search - reset to first page
+    setCurrentPage(1);
   };
 
   const handleExport = async () => {
@@ -74,12 +122,15 @@ export default function LeadsPage() {
       setIsExporting(true);
       const token = localStorage.getItem("token");
 
-      const response = await fetch("http://localhost:3000/api/leads/export", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/leads/export`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Erro ao exportar leads");
@@ -94,9 +145,10 @@ export default function LeadsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      toast.success("Leads exportados com sucesso!");
     } catch (error) {
       console.error("Erro ao exportar:", error);
-      alert("Erro ao exportar leads");
+      toast.error("Erro ao exportar leads");
     } finally {
       setIsExporting(false);
     }
@@ -123,10 +175,6 @@ export default function LeadsPage() {
     PERDIDO: "Perdido",
   };
 
-  if (isLoading) {
-    return <div>Carregando...</div>;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -141,8 +189,17 @@ export default function LeadsPage() {
           onClick={handleExport}
           disabled={isExporting}
         >
-          <Download className="h-4 w-4 mr-2" />
-          {isExporting ? "Exportando..." : "Exportar CSV"}
+          {isExporting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Exportando...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </>
+          )}
         </Button>
       </div>
 
@@ -155,7 +212,7 @@ export default function LeadsPage() {
               <Input
                 placeholder="Buscar por nome, email ou telefone..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -166,7 +223,7 @@ export default function LeadsPage() {
                 key={value}
                 variant={statusFilter === value ? "default" : "outline"}
                 size="sm"
-                onClick={() => setStatusFilter(value)}
+                onClick={() => handleStatusFilterChange(value)}
               >
                 {label}
               </Button>
@@ -175,90 +232,106 @@ export default function LeadsPage() {
         </div>
       </Card>
 
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
       {/* Leads List */}
-      <div className="space-y-3">
-        {filteredLeads.map((lead) => (
-          <Card key={lead.id} className="p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-lg">{lead.nome}</h3>
-                  <Badge
-                    className={statusColors[lead.status]}
-                    variant="secondary"
-                  >
-                    {statusLabels[lead.status]}
-                  </Badge>
-                  {lead.origem && (
-                    <Badge variant="outline" className="text-xs">
-                      {lead.origem}
-                    </Badge>
-                  )}
-                </div>
+      {!isLoading && (
+        <>
+          <div className="space-y-3">
+            {leads.map((lead) => (
+              <Card key={lead.id} className="p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold text-lg">{lead.nome}</h3>
+                      <Badge
+                        className={statusColors[lead.status]}
+                        variant="secondary"
+                      >
+                        {statusLabels[lead.status]}
+                      </Badge>
+                      {lead.origem && (
+                        <Badge variant="outline" className="text-xs">
+                          {lead.origem}
+                        </Badge>
+                      )}
+                    </div>
 
-                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    {formatPhone(lead.telefone)}
-                  </span>
-                  {lead.email && (
-                    <span className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {lead.email}
-                    </span>
-                  )}
-                  {lead.cidade && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {lead.cidade}
-                    </span>
-                  )}
-                  {lead.valorConta && (
-                    <span className="text-primary font-medium">
-                      Conta: {lead.valorConta.replace(/_/g, " ")}
-                    </span>
-                  )}
-                </div>
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        {formatPhone(lead.telefone)}
+                      </span>
+                      {lead.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {lead.email}
+                        </span>
+                      )}
+                      {lead.cidade && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {lead.cidade}
+                        </span>
+                      )}
+                      {lead.valorConta && (
+                        <span className="text-primary font-medium">
+                          Conta: {lead.valorConta.replace(/_/g, " ")}
+                        </span>
+                      )}
+                    </div>
 
-                {lead.utmSource && (
-                  <div className="text-xs text-muted-foreground">
-                    UTM: {lead.utmSource}
-                    {lead.utmMedium && ` / ${lead.utmMedium}`}
-                    {lead.utmCampaign && ` / ${lead.utmCampaign}`}
+                    {lead.utmSource && (
+                      <div className="text-xs text-muted-foreground">
+                        UTM: {lead.utmSource}
+                        {lead.utmMedium && ` / ${lead.utmMedium}`}
+                        {lead.utmCampaign && ` / ${lead.utmCampaign}`}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              <div className="flex flex-col items-end gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {formatDate(lead.createdAt)}
-                </span>
-                <Link href={`/dashboard/leads/${lead.id}`}>
-                  <Button size="sm">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Ver Detalhes
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Card>
-        ))}
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(lead.createdAt)}
+                    </span>
+                    <Link href={`/dashboard/leads/${lead.id}`}>
+                      <Button size="sm">
+                        <Eye className="h-4 w-4 mr-2" />
+                        Ver Detalhes
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            ))}
 
-        {filteredLeads.length === 0 && (
-          <Card className="p-12">
-            <p className="text-center text-muted-foreground">
-              Nenhum lead encontrado com os filtros selecionados
-            </p>
-          </Card>
-        )}
-      </div>
+            {leads.length === 0 && (
+              <Card className="p-12">
+                <p className="text-center text-muted-foreground">
+                  Nenhum lead encontrado com os filtros selecionados
+                </p>
+              </Card>
+            )}
+          </div>
 
-      {/* Summary */}
-      <Card className="p-4">
-        <p className="text-sm text-muted-foreground text-center">
-          Mostrando {filteredLeads.length} de {leads.length} leads
-        </p>
-      </Card>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }

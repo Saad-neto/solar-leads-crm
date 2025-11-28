@@ -50,14 +50,43 @@ export const api = {
 
   // Leads
   getLeads: async (params?: {
-    status?: string;
+    status?: string | string[];
+    origem?: string | string[];
+    cidade?: string | string[];
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    valorConta?: string;
     page?: number;
-    limit?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
   }) => {
     const query = new URLSearchParams();
-    if (params?.status) query.append("status", params.status);
+
+    if (params?.status) {
+      const statusArray = Array.isArray(params.status) ? params.status : [params.status];
+      statusArray.forEach(s => query.append("status", s));
+    }
+
+    if (params?.origem) {
+      const origemArray = Array.isArray(params.origem) ? params.origem : [params.origem];
+      origemArray.forEach(o => query.append("origem", o));
+    }
+
+    if (params?.cidade) {
+      const cidadeArray = Array.isArray(params.cidade) ? params.cidade : [params.cidade];
+      cidadeArray.forEach(c => query.append("cidade", c));
+    }
+
+    if (params?.search) query.append("search", params.search);
+    if (params?.dateFrom) query.append("dateFrom", params.dateFrom);
+    if (params?.dateTo) query.append("dateTo", params.dateTo);
+    if (params?.valorConta) query.append("valorConta", params.valorConta);
     if (params?.page) query.append("page", params.page.toString());
-    if (params?.limit) query.append("limit", params.limit.toString());
+    if (params?.pageSize) query.append("pageSize", params.pageSize.toString());
+    if (params?.sortBy) query.append("sortBy", params.sortBy);
+    if (params?.sortOrder) query.append("sortOrder", params.sortOrder);
 
     return fetchApi(`/api/leads?${query.toString()}`);
   },
@@ -87,4 +116,14 @@ export const api = {
     const query = days ? `?days=${days}` : "";
     return fetchApi(`/api/metrics/chart${query}`);
   },
+
+  // New chart endpoints
+  getLeadsTimeline: async (days: number = 30) =>
+    fetchApi(`/api/metrics/leads-timeline?days=${days}`),
+
+  getLeadsBySource: async () =>
+    fetchApi("/api/metrics/leads-by-source"),
+
+  getConversionFunnel: async () =>
+    fetchApi("/api/metrics/conversion-funnel"),
 };
