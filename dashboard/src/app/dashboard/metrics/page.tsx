@@ -26,7 +26,7 @@ export default function MetricsPage() {
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        const [metricsRes, overviewRes] = await Promise.all([
+        const [metricsRes, overviewRes] as [{ success: boolean; data?: any }, { success: boolean; data?: any }] = await Promise.all([
           api.getMetrics(),
           api.getOverviewMetrics(),
         ]);
