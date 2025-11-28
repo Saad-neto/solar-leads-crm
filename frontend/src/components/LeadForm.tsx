@@ -61,7 +61,7 @@ export const LeadForm = () => {
       };
 
       // Enviar para o backend
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+      const apiUrl = import.meta.env.VITE_API_URL || "http://95.217.158.112:3003";
       const response = await fetch(`${apiUrl}/api/leads`, {
         method: "POST",
         headers: {
