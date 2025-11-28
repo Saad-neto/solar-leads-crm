@@ -41,26 +41,26 @@ export default function AnalyticsPage() {
       ]);
 
       // Timeline
-      if (timelineRes.success) {
-        setTimelineData(timelineRes.data.timeline);
-        setTotalLeads(timelineRes.data.total);
+      if ((timelineRes as any).success) {
+        setTimelineData((timelineRes as any).data.timeline);
+        setTotalLeads((timelineRes as any).data.total);
       }
 
       // Sources
-      if (sourcesRes.success) {
-        setSourcesData(sourcesRes.data.sources);
+      if ((sourcesRes as any).success) {
+        setSourcesData((sourcesRes as any).data.sources);
       }
 
       // Funnel
-      if (funnelRes.success) {
-        setFunnelData(funnelRes.data.funnel);
-        setConversionRate(funnelRes.data.conversionRate);
-        setTotalFechados(funnelRes.data.ganho);
+      if ((funnelRes as any).success) {
+        setFunnelData((funnelRes as any).data.funnel);
+        setConversionRate((funnelRes as any).data.conversionRate);
+        setTotalFechados((funnelRes as any).data.ganho);
       }
 
       // Overview
-      if (overviewRes.success) {
-        setLeadsThisMonth(overviewRes.data.leadsMonth);
+      if ((overviewRes as any).success) {
+        setLeadsThisMonth((overviewRes as any).data.leadsMonth);
       }
     } catch (error) {
       console.error("Error loading analytics:", error);
