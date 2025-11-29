@@ -1,18 +1,7 @@
-import { useEffect } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 
 export default function DashboardLayout() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/admin-solar-2024x");
-    }
-  }, [navigate]);
-
   return (
     <div className="h-screen flex overflow-hidden">
       <div className="w-64 flex-shrink-0">

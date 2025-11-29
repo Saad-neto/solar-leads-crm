@@ -293,7 +293,7 @@ export default function LeadsPage() {
                     <span className="text-sm text-muted-foreground">
                       {formatDate(lead.createdAt)}
                     </span>
-                    <Link to={`/dashboard/leads/${lead.id}`}>
+                    <Link to={`/admin-solar-2024x/leads/${lead.id}`}>
                       <Button size="sm">
                         <Eye className="h-4 w-4 mr-2" />
                         Ver Detalhes

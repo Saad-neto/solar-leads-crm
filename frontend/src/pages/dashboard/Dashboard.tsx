@@ -156,7 +156,7 @@ export default function DashboardPage() {
             {recentLeads.map((lead) => (
               <Link
                 key={lead.id}
-                to={`/dashboard/leads/${lead.id}`}
+                to={`/admin-solar-2024x/leads/${lead.id}`}
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
               >
                 <div className="space-y-1 flex-1">

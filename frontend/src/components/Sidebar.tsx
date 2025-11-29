@@ -14,17 +14,17 @@ const routes = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
-    href: "/dashboard",
+    href: "/admin-solar-2024x",
   },
   {
     label: "Leads",
     icon: Users,
-    href: "/dashboard/leads",
+    href: "/admin-solar-2024x/leads",
   },
   {
     label: "Analytics",
     icon: BarChart3,
-    href: "/dashboard/analytics",
+    href: "/admin-solar-2024x/analytics",
   },
 ];
 
@@ -32,18 +32,14 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    toast.success("Logout realizado com sucesso!");
-    navigate("/admin-solar-2024x");
+  const handleGoHome = () => {
+    navigate("/");
   };
 
   return (
     <div className="space-y-4 py-4 flex flex-col h-full bg-card border-r">
       <div className="px-3 py-2 flex-1">
-        <Link to="/dashboard" className="flex items-center gap-2 pl-3 mb-14">
+        <Link to="/admin-solar-2024x" className="flex items-center gap-2 pl-3 mb-14">
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
             <Zap className="w-6 h-6 text-primary" />
           </div>
@@ -75,11 +71,11 @@ export function Sidebar() {
       <div className="px-3 py-2">
         <Button
           variant="ghost"
-          className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          onClick={handleLogout}
+          className="w-full justify-start text-muted-foreground hover:text-primary hover:bg-primary/10"
+          onClick={handleGoHome}
         >
           <LogOut className="h-5 w-5 mr-3" />
-          Sair
+          Voltar ao Site
         </Button>
       </div>
     </div>

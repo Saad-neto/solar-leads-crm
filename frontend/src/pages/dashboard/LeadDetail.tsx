@@ -107,7 +107,7 @@ export default function LeadDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link to="/dashboard/leads">
+        <Link to="/admin-solar-2024x/leads">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-5 w-5" />
           </Button>
