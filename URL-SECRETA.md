@@ -4,18 +4,13 @@
 
 ---
 
-## 🎯 URL de Login do Dashboard
+## 🎯 URL do Dashboard (Acesso Direto)
 
 ```
 https://energiasolar.pages.dev/admin-solar-2024x
 ```
 
----
-
-## 🔑 Credenciais
-
-**Email:** `teste@solarlead.com`
-**Senha:** `senha123`
+**✅ SEM SENHA!** Acesso direto ao dashboard.
 
 ---
 
@@ -25,6 +20,8 @@ https://energiasolar.pages.dev/admin-solar-2024x
 ```
 https://energiasolar.pages.dev/admin-solar-2024x
 ```
+
+**O dashboard abre automaticamente!**
 
 ---
 
