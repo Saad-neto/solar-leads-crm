@@ -15,7 +15,9 @@ const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  hsts: false, // Desativa HSTS para funcionar com Cloudflare Flexible SSL
+}));
 
 // CORS configuration
 const corsOptions = {

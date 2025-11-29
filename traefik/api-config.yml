@@ -1,0 +1,15 @@
+http:
+  routers:
+    solar-leads-api:
+      rule: "Host(`api.digitalizar.space`)"
+      service: solar-leads-backend
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    solar-leads-backend:
+      loadBalancer:
+        servers:
+          - url: "http://95.217.158.112:3003"
