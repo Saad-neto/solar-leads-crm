@@ -35,7 +35,7 @@ const App = () => (
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/admin-solar-2024x" element={<Login />} />
 
             {/* Dashboard routes */}
             <Route path="/dashboard" element={<DashboardLayout />}>

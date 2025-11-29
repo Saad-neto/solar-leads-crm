@@ -17,10 +17,12 @@ https://energiasolar.pages.dev
 
 ### 🔐 **Dashboard (Administrativo)**
 
-**Login:**
+**Login (URL SECRETA - Não compartilhar!):**
 ```
-https://energiasolar.pages.dev/login
+https://energiasolar.pages.dev/admin-solar-2024x
 ```
+
+⚠️ **ATENÇÃO:** Esta URL é secreta! Não compartilhe publicamente.
 
 **Credenciais de teste:**
 - Email: `teste@solarlead.com`

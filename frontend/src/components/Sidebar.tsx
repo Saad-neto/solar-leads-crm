@@ -37,7 +37,7 @@ export function Sidebar() {
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     toast.success("Logout realizado com sucesso!");
-    navigate("/login");
+    navigate("/admin-solar-2024x");
   };
 
   return (
