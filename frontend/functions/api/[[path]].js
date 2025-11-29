@@ -1,7 +1,7 @@
 // Cloudflare Pages Function para fazer proxy do backend
 const BACKEND_URL = 'http://95.217.158.112:3003';
 
-export async function onRequest(context: any) {
+export async function onRequest(context) {
   const { request } = context;
 
   // Handle CORS preflight
@@ -47,7 +47,7 @@ export async function onRequest(context: any) {
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     return response;
-  } catch (error: any) {
+  } catch (error) {
     return new Response(
       JSON.stringify({
         success: false,
