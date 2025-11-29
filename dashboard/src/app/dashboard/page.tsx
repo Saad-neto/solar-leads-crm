@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const loadData = async () => {
     try {
       const [leadsResponse, overviewResponse]: any = await Promise.all([
-        api.getLeads({ limit: 5 }),
+        api.getLeads({ pageSize: 5 }),
         api.getOverviewMetrics(),
       ]);
 
