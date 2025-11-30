@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://95.217.158.112:3003";
+const API_URL = import.meta.env.VITE_API_URL || "https://api.digitalizar.space";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
