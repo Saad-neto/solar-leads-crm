@@ -6,9 +6,9 @@ export const WhatsAppButton = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [showTooltip, setShowTooltip] = useState(true);
 
-  // Número do WhatsApp (formato: 5511999999999)
-  // Substitua pelo número real da empresa
-  const phoneNumber = "5511999999999";
+  // Número do WhatsApp (formato: 5511963256658)
+  // Número real da empresa cadastrado na Quepasa
+  const phoneNumber = "5511963256658";
   const message = encodeURIComponent(
     "Olá! Vi o site e gostaria de mais informações sobre energia solar."
   );
